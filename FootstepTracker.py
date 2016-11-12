@@ -65,6 +65,24 @@ def DetectFeetContour(thresh, startingPt, endingPt, footOffset):
             prevPixel = False
     return numToggles
 
+# Computes the direction of the bounding box.
+def ComputeDirection(prevUL, prevUR, currUL, currUR):
+    if prevUL is None or prevUR is None:
+        return "Unsure"
+
+    diffULx = prevUL[0] - currUL[0]
+    diffURx = prevUR[0] - currUR[0]
+
+    # Moving right
+    if diffULx < 0 and diffURx < 0:
+        return "Right"
+    # Moving Left
+    elif diffULx > 0 and diffURx > 0:
+        return "Left"
+    # Unsure
+    else:
+        return "Unsure"
+
 cap = cv2.VideoCapture("1.avi")
 
 # initialize the first frame in the video stream
@@ -76,11 +94,16 @@ threshold = 20
 dilateIterations = 6
 footOffsetPercentage = 0.10
 minArea = 2000
-skipToFrame = 50
+skipToFrame = 5
 frameCount = 0
 toggleShadowFilter = False
 toggleRatioFilter = True
 ratio = 2.0 # Ratio height : width (vertical rectangle
+
+prevUL = None # (x,y)
+prevUR = None # (x,y)
+prevDirection = None
+
 while(1):
     frameCount += 1
     print 'Frame: ', frameCount
@@ -158,7 +181,25 @@ while(1):
         if footCount == 2:
             cv2.rectangle(frame, (x, y+h-footOffset - 10), (x + w, y+h-footOffset + 10), (255, 0, 255), 2)
 
+        direction = ComputeDirection(prevUL, prevUR, (x, y), (x + w, y))
+        if direction is not "Unsure":
+            prevDirection = direction
+
+        if prevDirection == "Left":
+            cv2.line(frame, (x + w, y), (x + w, y + h), (255, 255, 0), 2)
+        elif prevDirection == "Right":
+            cv2.line(frame, (x, y), (x, y + h), (255, 255, 0), 2)
+
+        # Set as the previous for the next frame
+        prevUL = (x, y)
+        prevUR = (x + w, y)
+
     # cv2.drawContours(frame, contours, -1, (0, 255, 0), 3)
+
+    if prevDirection == 1:
+        print "Direction = ", prevDirection
+    elif prevDirection == -1:
+        print "Direction = ", prevDirection
 
     # show the frame and record if the user presses a key
     # cv2.imshow("Frame Delta", frameDelta)
