@@ -83,6 +83,12 @@ def ComputeDirection(prevUL, prevUR, currUL, currUR):
     else:
         return "Unsure"
 
+def DetectBackEdgePause(prevCorner, currCorner, threshold):
+    if -threshold < prevCorner[0] - currCorner[0] < threshold:
+        return True
+    else:
+        return False
+
 cap = cv2.VideoCapture("1.avi")
 
 # initialize the first frame in the video stream
@@ -104,6 +110,9 @@ prevUL = None # (x,y)
 prevUR = None # (x,y)
 prevDirection = None
 
+pauseFrameCounterThreshold = 2
+pauseFrameCounter = 0
+pausePixelThreshold = 3
 while(1):
     frameCount += 1
     print 'Frame: ', frameCount
@@ -187,8 +196,20 @@ while(1):
 
         if prevDirection == "Left":
             cv2.line(frame, (x + w, y), (x + w, y + h), (255, 255, 0), 2)
+            if DetectBackEdgePause(prevUR, (x + w, y), pausePixelThreshold):
+                pauseFrameCounter += 1
+                if pauseFrameCounter >= pauseFrameCounterThreshold:
+                    cv2.line(frame, (x + w, y), (x + w, y + h), (0, 255, 0), 2)
+            else:
+                pauseFrameCounter = 0
         elif prevDirection == "Right":
             cv2.line(frame, (x, y), (x, y + h), (255, 255, 0), 2)
+            if DetectBackEdgePause(prevUL, (x, y), pausePixelThreshold):
+                pauseFrameCounter += 1
+                if pauseFrameCounter >= pauseFrameCounterThreshold:
+                    cv2.line(frame, (x, y), (x, y + h), (0, 255, 0), 2)
+            else:
+                pauseFrameCounter = 0
 
         # Set as the previous for the next frame
         prevUL = (x, y)
