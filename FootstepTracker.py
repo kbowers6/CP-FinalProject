@@ -89,6 +89,12 @@ def DetectBackEdgePause(prevCorner, currCorner, threshold):
     else:
         return False
 
+# Outlines the foot given the foot line bounding box and the direction
+def OutlineFoot(RoI, direction):
+    cv2.imshow('foot bounding box', RoI)
+    cv2.waitKey()
+
+
 cap = cv2.VideoCapture("1.avi")
 
 # initialize the first frame in the video stream
@@ -99,6 +105,7 @@ kernelSize = 5
 threshold = 20
 dilateIterations = 6
 footOffsetPercentage = 0.10
+footBoundingBoxPercentage = 0.07
 minArea = 2000
 skipToFrame = 5
 frameCount = 0
@@ -118,6 +125,7 @@ while(1):
     print 'Frame: ', frameCount
 
     ret, frame = cap.read()
+    cleanFrame = frame.copy()
 
     if frame is None:
         break
@@ -177,6 +185,7 @@ while(1):
         (x, y, w, h) = cv2.boundingRect(contours[maxContourAreaIdx])
         print 'largest w,h = ', w,h
         footOffset = int(h * footOffsetPercentage)
+        footBoundingBoxOffset = int(h * footBoundingBoxPercentage)
         footCount = DetectFeetContour(thresh, (x, y), (x + w, y + h), footOffset)
 
         # largest contour bounding box and estimated footline
@@ -188,7 +197,7 @@ while(1):
 
         # Outline the feet
         if footCount == 2:
-            cv2.rectangle(frame, (x, y+h-footOffset - 10), (x + w, y+h-footOffset + 10), (255, 0, 255), 2)
+            cv2.rectangle(frame, (x, y+h-footOffset - footBoundingBoxOffset), (x + w, y+h-footOffset + footBoundingBoxOffset), (255, 0, 255), 2)
 
         direction = ComputeDirection(prevUL, prevUR, (x, y), (x + w, y))
         if direction is not "Unsure":
@@ -199,7 +208,10 @@ while(1):
             if DetectBackEdgePause(prevUR, (x + w, y), pausePixelThreshold):
                 pauseFrameCounter += 1
                 if pauseFrameCounter >= pauseFrameCounterThreshold:
+                    # Mark the backedge
                     cv2.line(frame, (x + w, y), (x + w, y + h), (0, 255, 0), 2)
+                    RoI = cleanFrame[y+h-footOffset - footBoundingBoxOffset:y+h-footOffset + footBoundingBoxOffset, x:x+w]
+                    OutlineFoot(RoI,'Left')
             else:
                 pauseFrameCounter = 0
         elif prevDirection == "Right":
@@ -207,7 +219,10 @@ while(1):
             if DetectBackEdgePause(prevUL, (x, y), pausePixelThreshold):
                 pauseFrameCounter += 1
                 if pauseFrameCounter >= pauseFrameCounterThreshold:
+                    # Mark the backedge
                     cv2.line(frame, (x, y), (x, y + h), (0, 255, 0), 2)
+                    RoI = cleanFrame[y + h - footOffset - footBoundingBoxOffset:y + h - footOffset + footBoundingBoxOffset, x:x + w]
+                    OutlineFoot(RoI, 'Right')
             else:
                 pauseFrameCounter = 0
 
