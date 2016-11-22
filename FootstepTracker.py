@@ -15,45 +15,61 @@ class Direction(Enum):
 
 # CD = ||I - aE||
 # Orthogonal distance from aE to I
-def ComputeChromacityDistortion(foregroundImage, backgroundImage, x, y, brightnessDistortion):
-    if brightnessDistortion == 0:
-        return 0
-    else:
-        I = [float(i) for i in foregroundImage[y][x]]
-        E = [float(i) for i in backgroundImage[y][x]]
-        aE = np.multiply(brightnessDistortion, E)
-        CDvector = np.subtract(I, aE)
-        CD = math.sqrt(np.vdot(CDvector,CDvector))
-        return CD
+def ComputeChromacityDistortion(foregroundImage, backgroundImage, brightnessDistortion):
+    # Convert to 3 channel since we are scaling a 3 channel RGB matrix
+    BD = np.zeros(foregroundImage.shape)
+    BD[:,:,0] = brightnessDistortion
+    BD[:,:,1] = brightnessDistortion
+    BD[:,:,2] = brightnessDistortion
 
+    aE = np.multiply(BD, backgroundImage)
+
+    CDvector = np.subtract(foregroundImage, aE).astype(float)
+    CDvector = CDvector.reshape((foregroundImage.shape[0] * backgroundImage.shape[1], 3))
+
+    CDdot = CDvector * CDvector
+    CDdot = np.sum(CDdot, axis=1)
+    CD = np.sqrt(CDdot)
+
+    CD = CD.reshape((foregroundImage.shape[0], backgroundImage.shape[1]))
+
+    return CD
 
 # (I DOT E) / ||E||^2 = BD (or a)
-def ComputeBrightnessDistortion(foregroundImage, backgroundImage, x, y):
-    I = [float(i) for i in foregroundImage[y][x]]
-    E = [float(i) for i in backgroundImage[y][x]]
-    Emag2 = np.vdot(E, E)
-    if Emag2 == 0:
-        return 0
-    else:
-        BD = np.vdot(I, E) / Emag2
-        return BD
+def ComputeBrightnessDistortion(foregroundImage, backgroundImage):
+    foregroundImageFloat = foregroundImage.astype(float)
+    backgroundImageFloat = backgroundImage.astype(float)
+
+    foregroundImageFlattened = foregroundImageFloat.reshape((foregroundImage.shape[0] * backgroundImage.shape[1], 3))
+    backgroundImageFlattened = backgroundImageFloat.reshape((backgroundImage.shape[0] * backgroundImage.shape[1], 3))
+
+    BDnum = foregroundImageFlattened * backgroundImageFlattened
+    BDnum = np.sum(BDnum, axis=1)
+
+    BDdenom = backgroundImageFlattened * backgroundImageFlattened
+    BDdenom = np.sum(BDdenom, axis=1)
+
+    with np.errstate(invalid='ignore'):
+        BDmatrix = np.nan_to_num(np.divide(BDnum, BDdenom))
+
+    BDmatrix = BDmatrix.reshape((foregroundImage.shape[0], backgroundImage.shape[1]))
+
+    return BDmatrix
 
 # Filters out shadow and replaces it with the background pixels
 def ShadowFilter(foregroundImage, backgroundImage, CDthreshold=30.0, BDthreshold=0.8):
+    BD = ComputeBrightnessDistortion(foregroundImage,backgroundImage)
+    CD = ComputeChromacityDistortion(foregroundImage, backgroundImage, BD)
+
     for rowIter in range(foregroundImage.shape[0]):
         for colIter in range(foregroundImage.shape[1]):
-            BD = ComputeBrightnessDistortion(foregroundImage, backgroundImage, colIter, rowIter)
-            CD = ComputeChromacityDistortion(foregroundImage, backgroundImage, colIter, rowIter, BD)
-
-            if CD < CDthreshold:
-                if BDthreshold < BD < 1.0: # > 1.0 is a highlight
+            if CD[rowIter,colIter] < CDthreshold:
+                if BDthreshold < BD[rowIter,colIter] < 1.0: # > 1.0 is a highlight
                     # Shadow
                     foregroundImage[rowIter][colIter][0] = backgroundImage[rowIter][colIter][0]
                     foregroundImage[rowIter][colIter][1] = backgroundImage[rowIter][colIter][1]
                     foregroundImage[rowIter][colIter][2] = backgroundImage[rowIter][colIter][2]
 
-
-# Look along the line segment (startingpt -> endingPt) for 2 positive streaks => feet
 def DetectFeetContour(thresh, startingPt, endingPt, footOffset):
     #iterate along the line segment
     lineSegmentLength = endingPt[0] - startingPt[0]
@@ -70,6 +86,7 @@ def DetectFeetContour(thresh, startingPt, endingPt, footOffset):
         elif prevPixel and thresh[yIntersect][xStarting + iter] ==  0:
             prevPixel = False
     return numToggles
+# Look along the line segment (startingpt -> endingPt) for 2 positive streaks => feet
 
 # Computes the direction of the bounding box.
 def ComputeDirection(prevUL, prevUR, currUL, currUR):
@@ -118,7 +135,7 @@ def OutlineFoot(RoI, direction, footPercentage=0.33):
 
 
 
-cap = cv2.VideoCapture("1.avi")
+cap = cv2.VideoCapture("2.avi")
 
 # initialize the first frame in the video stream
 firstFrame = None
@@ -130,9 +147,9 @@ dilateIterations = 6
 footOffsetPercentage = 0.10
 footBoundingBoxPercentage = 0.07
 minArea = 2000
-skipToFrame = 5
+skipToFrame = 36
 frameCount = 0
-toggleShadowFilter = False
+toggleShadowFilter = True
 toggleRatioFilter = True
 ratio = 2.0 # Ratio height : width (vertical rectangle
 
@@ -255,10 +272,16 @@ while(1):
                     # track_window = (footBBUL[0], footBBUL[1], int(footBBw * backFootPercentage), footBBh)
             else:
                 if pauseFrameCounter >= pauseFrameCounterThreshold:
-                    footBBUL = (x, y + h - footOffset - footBoundingBoxOffset)  # (x,y)
-                    footBBw = w
-                    footBBh = 2 * footBoundingBoxOffset
-                    footstepRoIs.append([footBBUL[0], footBBUL[1], int(footBBw * backFootPercentage), footBBh])
+                    if direction == Direction.Right:
+                        footBBUL = (x, y + h - footOffset - footBoundingBoxOffset)  # (x,y)
+                        footBBw = w * backFootPercentage
+                        footBBh = 2 * footBoundingBoxOffset
+                        footstepRoIs.append([footBBUL[0], footBBUL[1], int(footBBw), footBBh])
+                    elif direction == Direction.Left:
+                        footBBUL = (x + int((1 - backFootPercentage) * w), y + h - footOffset - footBoundingBoxOffset)  # (x,y)
+                        footBBw = w * backFootPercentage
+                        footBBh = 2 * footBoundingBoxOffset
+                        footstepRoIs.append([footBBUL[0], footBBUL[1], int(footBBw), footBBh])
 
                 pauseFrameCounter = 0
         elif prevDirection == Direction.Right:
