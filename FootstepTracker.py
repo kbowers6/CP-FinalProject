@@ -112,26 +112,6 @@ def DetectBackEdgePause(prevCorner, currCorner, threshold):
     else:
         return False
 
-# Outlines the foot given the foot line bounding box and the direction
-# Foot percentage is how much of the RoI is the back foot (guestimate)
-def OutlineFoot(RoI, direction, footPercentage=0.33):
-    # Use direction to grab the back foot
-    backFootRoI = None
-    width = RoI.shape[1]
-    height = RoI.shape[0]
-    if direction == Direction.Right:
-        backFootRoI = RoI[0:h, 0:int(w*footPercentage)]
-
-        cv2.imshow("backfoot", backFootRoI)
-        cv2.waitKey()
-
-        hsv_roi = cv2.cvtColor(backFootRoI, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv_roi, np.array((0., 30., 32.)), np.array((180., 255., 255.)))
-        roi_hist = cv2.calcHist([hsv_roi], [0], mask, [180], [0, 180])
-        cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
-
-        return roi_hist
-
 cap = cv2.VideoCapture("2.6.avi")
 
 # Define the codec and create VideoWriter object
@@ -163,10 +143,6 @@ pauseFrameCounter = 0
 pausePixelThreshold = 5
 
 backFootPercentage = 0.33
-backFootRoIHist = None
-backFootRoI = None
-track_window = None
-term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 80, 1)
 
 footstepRoIs = []
 
@@ -261,17 +237,6 @@ while(1):
                 if pauseFrameCounter >= pauseFrameCounterThreshold:
                     # Mark the backedge
                     cv2.line(frame, (x + w, y), (x + w, y + h), (0, 255, 0), 2)
-
-                    # footBBUL = (x,y+h-footOffset - footBoundingBoxOffset) # (x,y)
-                    # footBBw = w
-                    # footBBh = 2 * footBoundingBoxOffset
-
-                    # backFootRoI = cleanFrame[footBBUL[1]:footBBUL[1]+footBBh, footBBUL[0]:footBBUL[0]+w]
-                    # backFootRoI = backFootRoI[0:h, 0:int(w * backFootPercentage)]
-                    # footstepRoIs.append([footBBUL[0], footBBUL[1], int(footBBw * backFootPercentage), footBBh])
-
-                    # backFootRoIHist = OutlineFoot(backFootRoI, Direction.Left ,footPercentage=backFootPercentage,)
-                    # track_window = (footBBUL[0], footBBUL[1], int(footBBw * backFootPercentage), footBBh)
             else:
                 if pauseFrameCounter >= pauseFrameCounterThreshold:
                     if direction == Direction.Right:
@@ -293,18 +258,6 @@ while(1):
                 if pauseFrameCounter >= pauseFrameCounterThreshold:
                     # Mark the backedge
                     cv2.line(frame, (x, y), (x, y + h), (0, 255, 0), 2)
-
-                    # footBBUL = (x, y + h - footOffset - footBoundingBoxOffset) # (x,y)
-                    # footBBw = w
-                    # footBBh = 2 * footBoundingBoxOffset
-
-                    # backFootRoI = cleanFrame[footBBUL[1]:footBBUL[1]+footBBh, footBBUL[0]:footBBUL[0]+w]
-                    # backFootRoI = backFootRoI[0:h, 0:int(w * backFootPercentage)]
-                    # footstepRoIs.append([footBBUL[0], footBBUL[1], int(footBBw * backFootPercentage), footBBh])
-
-                    # backFootRoIHist = OutlineFoot(backFootRoI, Direction.Right, footPercentage=backFootPercentage)
-                    # track_window = (footBBUL[0], footBBUL[1], int(footBBw * backFootPercentage), footBBh)
-
             else:
                 if pauseFrameCounter >= pauseFrameCounterThreshold:
                     footBBUL = (x, y + h - footOffset - footBoundingBoxOffset)  # (x,y)
@@ -322,14 +275,6 @@ while(1):
 
     if prevDirection is not Direction.Unsure:
         print "Direction = ", prevDirection
-
-    # Track back foot
-    if backFootRoIHist is not None:
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        dst = cv2.calcBackProject([hsv], [0], backFootRoIHist, [0, 180], 1)
-        ret, track_window = cv2.meanShift(dst, track_window, term_crit)
-        x, y, w, h = track_window
-        cv2.rectangle(frame, (x, y), (x + w, y + h), 255, 2)
 
     # Draw past detected foot steps
     if len(footstepRoIs) > 0:
