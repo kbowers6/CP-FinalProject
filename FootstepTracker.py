@@ -132,10 +132,11 @@ def OutlineFoot(RoI, direction, footPercentage=0.33):
 
         return roi_hist
 
+cap = cv2.VideoCapture("2.6.avi")
 
-
-
-cap = cv2.VideoCapture("2.avi")
+# Define the codec and create VideoWriter object
+fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+out = cv2.VideoWriter('output2.6.avi', fourcc, 29.0, (720,480))
 
 # initialize the first frame in the video stream
 firstFrame = None
@@ -147,19 +148,19 @@ dilateIterations = 6
 footOffsetPercentage = 0.10
 footBoundingBoxPercentage = 0.07
 minArea = 2000
-skipToFrame = 36
+skipToFrame = 0
 frameCount = 0
 toggleShadowFilter = True
 toggleRatioFilter = True
-ratio = 2.0 # Ratio height : width (vertical rectangle
+ratio = 1.7 # Ratio height : width (vertical rectangle
 
 prevUL = None # (x,y)
 prevUR = None # (x,y)
 prevDirection = None
 
-pauseFrameCounterThreshold = 4
+pauseFrameCounterThreshold = 2
 pauseFrameCounter = 0
-pausePixelThreshold = 3
+pausePixelThreshold = 5
 
 backFootPercentage = 0.33
 backFootRoIHist = None
@@ -174,10 +175,11 @@ while(1):
     print 'Frame: ', frameCount
 
     ret, frame = cap.read()
-    cleanFrame = frame.copy()
 
     if frame is None:
         break
+
+    cleanFrame = frame.copy()
 
     # Detect Shadow
     if toggleShadowFilter and firstFrame is not None and frameCount >= skipToFrame:
@@ -339,11 +341,16 @@ while(1):
     # cv2.imshow("Frame Delta", frameDelta)
     cv2.imshow("Thresh", thresh)
     cv2.imshow('frame', frame)
-    key = cv2.waitKey() & 0xFF
+
+    # write the video frame
+    out.write(frame)
+
+    key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
         break
 
 cap.release()
+out.release()
 cv2.destroyAllWindows()
 
 
