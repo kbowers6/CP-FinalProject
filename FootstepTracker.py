@@ -70,6 +70,7 @@ def ShadowFilter(foregroundImage, backgroundImage, CDthreshold=30.0, BDthreshold
                     foregroundImage[rowIter][colIter][1] = backgroundImage[rowIter][colIter][1]
                     foregroundImage[rowIter][colIter][2] = backgroundImage[rowIter][colIter][2]
 
+# Look along the line segment (startingpt -> endingPt) for 2 positive streaks => feet
 def DetectFeetContour(thresh, startingPt, endingPt, footOffset):
     #iterate along the line segment
     lineSegmentLength = endingPt[0] - startingPt[0]
@@ -86,7 +87,6 @@ def DetectFeetContour(thresh, startingPt, endingPt, footOffset):
         elif prevPixel and thresh[yIntersect][xStarting + iter] ==  0:
             prevPixel = False
     return numToggles
-# Look along the line segment (startingpt -> endingPt) for 2 positive streaks => feet
 
 # Computes the direction of the bounding box.
 def ComputeDirection(prevUL, prevUR, currUL, currUR):
@@ -106,6 +106,7 @@ def ComputeDirection(prevUL, prevUR, currUL, currUR):
     else:
         return Direction.Unsure
 
+# Look for the back edge of the bounding box to pause for multiple frames
 def DetectBackEdgePause(prevCorner, currCorner, threshold):
     if -threshold < prevCorner[0] - currCorner[0] < threshold:
         return True
