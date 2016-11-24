@@ -57,7 +57,7 @@ def ComputeBrightnessDistortion(foregroundImage, backgroundImage):
     return BDmatrix
 
 # Filters out shadow and replaces it with the background pixels
-def ShadowFilter(foregroundImage, backgroundImage, CDthreshold=30.0, BDthreshold=0.8):
+def ShadowFilter(foregroundImage, backgroundImage, CDthreshold=10.0, BDthreshold=0.5):
     BD = ComputeBrightnessDistortion(foregroundImage,backgroundImage)
     CD = ComputeChromacityDistortion(foregroundImage, backgroundImage, BD)
 
@@ -113,11 +113,11 @@ def DetectBackEdgePause(prevCorner, currCorner, threshold):
     else:
         return False
 
-cap = cv2.VideoCapture("2.6.avi")
+cap = cv2.VideoCapture("2.3.avi")
 
 # Define the codec and create VideoWriter object
 fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-out = cv2.VideoWriter('output2.6.avi', fourcc, 29.0, (720,480))
+out = cv2.VideoWriter('output2.3.avi', fourcc, 29.0, (720,480))
 
 # initialize the first frame in the video stream
 firstFrame = None
@@ -141,7 +141,7 @@ prevDirection = None
 
 pauseFrameCounterThreshold = 2
 pauseFrameCounter = 0
-pausePixelThreshold = 5
+pausePixelThreshold = 10
 
 backFootPercentage = 0.33
 
